@@ -2,52 +2,72 @@
 
 A Codex skill for processing NetCDF sea surface temperature (SST) data and creating publication-quality maps using MATLAB + m_map toolbox.
 
-## What It Does
+## Key Lessons (updated)
 
-1. **Preprocess**: Extract SST from NetCDF (`.nc`) files using Python + h5py → save as `.mat`
-2. **Plot**: Load `.mat` in MATLAB + m_map → produce professional SST maps with:
-   - Mercator projection
-   - Gray land fill with coastline outlines
-   - Customizable color scale and grid
-   - Publication-grade formatting
+| Lesson | Detail |
+|--------|--------|
+| **Always use m_map** | Not imagesc. m_proj/m_pcolor/m_gshhs/m_grid by default |
+| **ncread can fail** | Some NetCDF4 files return NaN → use Python h5py → export .mat |
+| **Fixed caxis** | Multi-day comparison requires global min/max, not per-day auto-scale |
+| **Ask first** | When unsure about tools, ask the user |
+| **Extract drawing logic** | Repeated plot code → one function, all scripts call it |
 
-## Workflow
+## Project Structure
 
 ```
-NetCDF (.nc)  →  preprocess.py (Python)  →  sst_data.mat  →  plot_sst.m (MATLAB)  →  Figure
+sst-mapper/
+├── SKILL.md                  # Core skill instructions
+├── README.md                 # This file
+├── agents/
+│   └── openai.yaml           # UI metadata
+├── scripts/
+│   ├── preprocess.py          # Python: extract SST from NC → .mat
+│   └── plot_sst.m            # MATLAB: m_map plotting template
+└── references/
+    └── map_style.md           # m_map style reference
 ```
 
 ## Files
 
-| File | Description |
-|------|-------------|
-| `SKILL.md` | Main skill instructions and workflow |
+| File | Purpose |
+|------|---------|
+| `SKILL.md` | Full workflow documentation + common pitfalls |
 | `scripts/preprocess.py` | Python: extract SST from NC, save as .mat |
 | `scripts/plot_sst.m` | MATLAB: load .mat, draw map with m_map |
-| `references/map_style.md` | m_map style reference |
-| `agents/openai.yaml` | Skill UI metadata |
+| `references/map_style.md` | m_map style options |
 
-## Requirements
+## Recommended User Project Structure
 
-### Python
-- h5py, numpy, scipy
+For actual data work, structure your project like this:
 
-### MATLAB
-- [m_map](https://www.eoas.ubc.ca/~rich/map.html) toolbox
-- GSHHS coastline data (`gshhs_*.b` files in m_map/data/)
-
-## Usage
-
-```bash
-# Step 1: Preprocess
-python scripts/preprocess.py -i data.nc -t 0 -z 0 -o sst_data.mat
-
-# Step 2: Edit plot_sst.m → adjust region/range/title → run in MATLAB
+```
+project/
+├── README.md                  # Project documentation
+├── plot_sst_map.m             # [Function] Plot SST map (all scripts call this)
+├── extract_data.m             # [Extract] Subset from NC → .mat
+├── interp_plot.m              # [Single] Interpolate + view
+├── animate_daily_raw.m        # [Batch] All days raw 0.25° → PNG + GIF
+├── animate_daily_interp.m     # [Batch] All days interp 0.1° → PNG + GIF
+└── regional_sst_all.mat       # Generated data from extract_data.m
 ```
 
-## Key Lessons Learned
+## Publication Standards
 
-- **ncread in MATLAB often returns NaN** for NetCDF4 files → always use Python (h5py) for extraction
-- **m_pcolor must be called BEFORE m_gshhs** so land gray fills on top of ocean data
-- **Land color**: `[0.7 0.7 0.7]`, coastline: `[0.3 0.3 0.3]` — balanced for publication
-- **Grid**: dotted gray lines, not solid black
+| Item | Standard |
+|------|----------|
+| Title | English |
+| Colormap | parula (not jet) |
+| Colorbar label | SST (°C) |
+| Colorbar range | Fixed across all frames |
+| Land color | [0.7 0.7 0.7] gray |
+| Coastline | [0.3 0.3 0.3], linewidth 0.4 |
+| Grid | Light gray dotted |
+| Font | Title 15, grid 11, colorbar 12 |
+
+## Common Pitfalls
+
+- **ncread returns all NaN**: Use Python h5py instead
+- **m_pcolor dimension mismatch**: sst must be (lat, lon)
+- **scatteredInterpolant precision error**: Use double() conversion
+- **sprintf \circ escape**: Use \\circ inside sprintf
+- **GSHHS data missing**: Extract gshhg-bin-*.zip to m_map/data/
