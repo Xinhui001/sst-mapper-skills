@@ -114,13 +114,13 @@ plot_sst_map(经度, 纬度, 海温数据, 标题文字, 色标范围, 图窗名
 | 项目 | 标准 |
 |------|------|
 | 标题 | 英文 |
-| 配色 | `parula`（非 jet） |
+| 配色 | parula（SST）/ RdBu（异常场），禁用 jet |
 | 色标标签 | `SST (°C)` |
 | 色标范围 | 同系列图必须固定 |
 | 陆地颜色 | `[0.7 0.7 0.7]` 灰色 |
 | 海岸线 | `[0.3 0.3 0.3]` 深灰，线宽 0.4 |
 | 网格线 | 浅灰虚线 `':'`，线宽 0.3，不压图 |
-| 字体 | 标题 15，网格 11，色标 12 |
+| 字体 | 标题 8pt，标签 7pt（单栏 89mm） |
 
 ## 常见踩坑
 
@@ -135,3 +135,169 @@ plot_sst_map(经度, 纬度, 海温数据, 标题文字, 色标范围, 图窗名
 
 - `scripts/plot_sst.m` — MATLAB 绘图模板（需结合 skill 中的函数式架构调整）
 - `references/map_style.md` — m_map 样式参考
+
+
+## 新增功能：垂向插值 + 时间插值 + 异常场动图
+
+基于实际项目（CMEMS GLORYS 东海区域，每日数据到 6h 分辨率）的关键经验。
+
+### 关键教训（新增）
+
+| 教训 | 说明 |
+|------|------|
+| **垂向插值循环每个点** | interp1(depth, prof, z_target, 'linear') |
+| **时间插值先造 datenum 轴** | time_6h = time_dn(1):(6/24):time_dn(end)，再循环每个点 interp1 |
+| **异常 = 原始 - 时间均值** | 用发散色标 RdBu 突出变化 |
+| **发散色标必须对称** | 确保 0 值在中间（白色） |
+| **GIF：逐帧 PNG 合成** | rgb2ind + imwrite append |
+| **外扩 2 度防白边** | 读时外扩，画图时裁回 |
+| **brewermap 优先回退 jet** | try...catch 包裹 |
+
+### 项目结构（追加）
+
+```
+project/
+  plot_sst_map.m               # 画图函数（支持 RdBu 发散色标）
+  interp_depth_time_anim.m     # 垂向+时间插值到异常场到GIF
+  run_50m.bat                  # 一键运行
+  output/
+    interp_50m_6h.mat          # 插值结果
+    frames_50m_6h/             # 每帧 PNG
+    sst_50m_6h.gif             # 最终动图
+```
+
+### 新增工作流程
+
+**第 6 步：垂向插值到目标深度**
+
+NC 维度顺序 (lon, lat, depth, time)，squeeze 取垂直剖面，跳过陆地点。
+
+```matlab
+z_target = 50;
+z_query = min(max(z_target, min(depth_all)), max(depth_all));
+sst_depth = NaN(nlon, nlat, ntime);
+for i = 1:nlon
+  for j = 1:nlat
+    for t = 1:ntime
+      prof = squeeze(thetao(i, j, :, t));
+      valid = ~isnan(prof);
+      if sum(valid) < 2, continue; end
+      sst_depth(i,j,t) = interp1(depth_all(valid), prof(valid), z_query, 'linear');
+    end
+  end
+end
+```
+
+**第 7 步：时间插值（每日到 6h）**
+
+先生成目标轴 time_6h = time_dn(1):(6/24):time_dn(end)，每次插一个 (lon,lat) 点。
+
+```matlab
+HOUR_STEP = 6;
+time_6h = time_dn(1):(HOUR_STEP/24):time_dn(end);
+sst_6h = NaN(nlon, nlat, nt_6h);
+for i = 1:nlon
+  for j = 1:nlat
+    ts = squeeze(sst_depth(i, j, :));
+    valid = ~isnan(ts);
+    if sum(valid) < 2, continue; end
+    sst_6h(i,j,:) = interp1(time_dn(valid), double(ts(valid)), time_6h, 'linear');
+  end
+end
+```
+
+**第 8 步：异常场 + GIF 动图**
+
+```matlab
+sst_mean = mean(sst_6h, 3, 'omitnan');
+sst_anom = sst_6h - sst_mean;
+anom_max = max(abs(sst_anom(:)));
+caxis_val = [-ceil(anom_max*2)/2, ceil(anom_max*2)/2];
+for t = 1:nt_6h
+  plot_sst_map(lon_plot, lat_plot, frame(:,:,t), title_text, caxis_val);
+  print(gcf, '-dpng', '-r300', fullfile(dir, fname));
+  close(gcf);
+end
+for t = 1:nt_6h
+  [idx, cmap] = rgb2ind(imread(...), 256);
+  if t == 1
+    imwrite(idx, cmap, gif_path, 'gif', 'Loopcount', inf, 'DelayTime', 0.4);
+  else
+    imwrite(idx, cmap, gif_path, 'gif', 'WriteMode', 'append', 'DelayTime', 0.4);
+  end
+end
+```
+
+### 新增常见踩坑
+
+| 问题 | 解决 |
+|------|------|
+| rb 读 + w 写导致 CR 翻倍 | Windows 文本模式把换行转 CRLF，读二进制后写文本会叠加 CR |
+| re.subn 的 s* 会匹配回车 | 文本替换时 s 含回车，对括号需转义 |
+| brewermap 未安装 | FileExchange #120022 下载 |
+| m_pcolor 维度需 (lat, lon) | permute 转置 |
+| sst_anom 含 NaN | omitnan 参数 |
+| GIF 帧文件积累 | 每帧约 500KB |
+
+### New Scripts
+
+interp_depth_time_anim.m - full workflow
+plot_sst_map.m - reusable plotting function
+
+
+
+---
+
+## Roadmap / 开发计划
+
+当前 skill 已实现：NC 读取 → 区域裁剪 → 垂向插值 → 时间插值 → 异常场计算 → 顶刊级出图 → GIF 动图的完整管线。
+以下是下一步应该补充的能力，按优先级排列。
+
+### P0: 基础功能补齐（优先做）
+
+| 功能 | 说明 | 涉及文件 |
+|------|------|---------|
+| **多变量支持** | 推广到盐度 so、海流 uo/vo、海面高度 zos | extract_data.m, interp_depth_time_anim.m |
+| **多数据源适配** | 支持 HYCOM / SODA / AVISO / ERA5，不同维度顺序和变量名 | extract_data.m, 新建 adaptor |
+| **垂直剖面图** | 沿纬度/经度固定剖面的 depth-lon / depth-lat 图 | 新建 plot_vertical_section.m |
+| **单点时间序列** | 提取某个 (lon,lat) 的温度时间序列 + 折线图 | 新建 extract_timeseries.m |
+| **空间区域平均** | 对指定子区域做空间平均，画时间序列 | extract_timeseries.m 内实现 |
+
+### P1: 分析能力（有了基础后）
+
+| 功能 | 说明 | 涉及文件 |
+|------|------|---------|
+| **气候态月平均** | 多年逐月聚合，输出 12 张月气候态图 | 新建 monthly_climatology.m |
+| **季节平均** | DJF/MAM/JJA/SON 四季聚合 | monthly_climatology.m 内实现 |
+| **等值线叠加** | 在填色图上叠等温线/等高线 (m_contour) | plot_sst_map.m |
+| **多面板组合图** | tiledlayout 多面板排版，用于论文 figure | 新建 composite_figure.m |
+| **混合层深度** | 温度阈值法计算 MLD，画空间分布 | 新建 calc_mld.m |
+| **热含量** | 垂向积分 OHC = rho Cp T dz | 新建 calc_ohc.m |
+
+### P2: 高级分析（可选）
+
+| 功能 | 说明 |
+|------|------|
+| EOF 分析 | svd/eig 分解时空场，提取主导模态 |
+| Hovmoller 图 | time-lon / time-lat 剖面展示信号传播 |
+| 矢量场图 | m_quiver 画海流叠加在海温/SSH 上 |
+| 锋面检测 | 基于梯度阈值的温度锋面提取 |
+| 色盲友好检查 | 确认所有配色通过 CVD 模拟 |
+
+### P3: 工程化改进（长期)
+
+| 功能 | 说明 |
+|------|------|
+| 配置文件驱动 | YAML/JSON 配置文件，避免每次改 .m 代码 |
+| 日志系统 | 记录每步耗时、文件大小、状态 |
+| 并行加速 | 垂向插值三重循环改 parfor |
+| 命令行接口 | matlab -batch run(config.yaml) |
+| 交互式探索 | MATLAB App Designer 或 GUI 浏览数据 |
+
+---
+
+### 如何贡献 / How to Contribute
+
+- 每个新功能建一个独立脚本，放在 scripts/ 目录
+- 遵循现有的项目结构：画图逻辑在 plot_sst_map.m，数据分析在独立脚本
+- 顶刊标准见上方的出版标准表

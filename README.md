@@ -47,13 +47,13 @@ project/
 | Item / 项目 | Standard / 标准 |
 |-------------|-----------------|
 | Title / 标题 | English |
-| Colormap / 配色 | parula (not jet) |
+| Colormap / 配色 | parula (SST) / RdBu (anomaly); never jet |
 | Colorbar label / 色标标签 | SST (°C) |
-| Colorbar range / 色标范围 | Fixed across all frames / 多图固定 |
+| Colorbar range / 色标范围 | Fixed across all frames |
 | Land color / 陆地颜色 | [0.7 0.7 0.7] gray |
-| Coastline / 海岸线 | [0.3 0.3 0.3], linewidth 0.4 |
+| Coastline / 海岸线 | [0.3 0.3 0.3], linewidth 0.3 |
 | Grid / 网格 | Light gray dotted / 浅灰虚线 |
-| Font / 字体 | Title 15, grid 11, colorbar 12 |
+| Font / 字体 | Title 8pt, labels 7pt (single-col 89mm) |
 
 ## Common Pitfalls / 常见踩坑
 
@@ -65,3 +65,59 @@ project/
 | sprintf \circ escape | Use \\\\circ inside sprintf |
 | GSHHS data missing | Extract gshhg-bin-*.zip to m_map/data/ |
 | Interpolation fails with NaN | Use fillmissing first, or scatteredInterpolant |
+
+
+## New Capabilities (追加功能)
+
+Based on the "vertical interpolation + temporal interpolation + anomaly animation" workflow (test3 project).
+
+### New Scripts
+
+| File / 文件 | Purpose / 作用 |
+|-------------|----------------|
+| scripts/interp_depth_time_anim.m | Full workflow: vertical interp to time interp to anomaly to GIF |
+| scripts/plot_sst_map.m | Reusable plotting function with RdBu diverging colormap support |
+
+### New Workflow Capabilities
+
+| Capability / 功能 | Description / 说明 |
+|-------------------|-------------------|
+| Vertical interpolation | Loop each (lon,lat,time) point, interp1 to target depth |
+| Temporal interpolation | Generate high-res datenum axis, loop each (lon,lat), interp1 |
+| Anomaly computation | Subtract time-mean, use diverging colormap (RdBu) |
+| Animated GIF | Per-frame PNG to rgb2ind to imwrite append, looped playback |
+| Batch runners | .bat files for one-click execution at different depths |
+| Brewermap fallback | try/catch brewermap, fallback to jet if unavailable |
+
+### File Naming Convention
+
+```
+output/
+  interp_50m_6h.mat              # Interpolated data
+  frames_50m_6h/                 # Per-frame PNGs
+    frame_50m_t001.png
+    ...
+  sst_50m_6h.gif                 # Final animation
+```
+
+
+## Roadmap / 开发计划
+
+See SKILL.md for full roadmap.
+Priority order: P0 (basic) > P1 (analysis) > P2 (advanced) > P3 (engineering)
+
+
+## Capability Status / 能力状态
+
+| 层次 | 能力 | 当前状态 |
+|------|------|---------|
+| 基础 | 单变量读/裁/画/动图 | ✅ 已有 |
+| 基础 | 多数据源适配 | ❌ 需加 |
+| 基础 | 垂向/时间插值 | ✅ 已有 |
+| 基础 | 垂直剖面图 | ❌ 需加 |
+| 进阶 | 时间序列 + 空间平均 | ❌ 需加 |
+| 进阶 | 气候态/季节平均 | ❌ 需加 |
+| 进阶 | EOF / 混合层深度 | ❌ 需加 |
+| 出图 | 多面板组合 / 等值线 / 矢量 | ❌ 需加 |
+| 工程 | 配置文件 / 日志 / 并行 | ❌ 需加 |
+
