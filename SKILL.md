@@ -209,12 +209,18 @@ end
 **第 8 步：异常场 + GIF 动图**
 
 ```matlab
-sst_mean = mean(sst_6h, 3, 'omitnan');
-sst_anom = sst_6h - sst_mean;
-anom_max = max(abs(sst_anom(:)));
-caxis_val = [-ceil(anom_max*2)/2, ceil(anom_max*2)/2];
+% USE_ANOMALY = true: 使用异常场
+if USE_ANOMALY
+  sst_mean = mean(sst_6h, 3, 'omitnan');
+  plot_data = sst_6h - sst_mean;
+  caxis_val = [-ceil(max(abs(plot_data(:)))*2)/2, ceil(max(abs(plot_data(:)))*2)/2];
+else
+  % 默认：使用绝对温度
+  plot_data = sst_6h;
+  caxis_val = [floor(min(sst_6h(:))), ceil(max(sst_6h(:)))];
+end
 for t = 1:nt_6h
-  plot_sst_map(lon_plot, lat_plot, frame(:,:,t), title_text, caxis_val);
+  plot_sst_map(lon, lat, plot_data(:,:,t), title_text, caxis_val);
   print(gcf, '-dpng', '-r300', fullfile(dir, fname));
   close(gcf);
 end
@@ -236,13 +242,13 @@ end
 | re.subn 的 s* 会匹配回车 | 文本替换时 s 含回车，对括号需转义 |
 | brewermap 未安装 | FileExchange #120022 下载 |
 | m_pcolor 维度需 (lat, lon) | permute 转置 |
-| sst_anom 含 NaN | omitnan 参数 |
+| USE_ANOMALY 开关未设置 | omitnan 参数 |
 | GIF 帧文件积累 | 每帧约 500KB |
 
 ### New Scripts
 
-interp_depth_time_anim.m - full workflow
-plot_sst_map.m - reusable plotting function
+interp_depth_time_anim.m - interp_depth_time_anim.m - 完整工作流程 (支持 USE_ANOMALY 切换绝对温度/异常场)
+plot_sst_map.m - 可复用画图函数 (支持 parula/RdBu 配色)
 
 
 

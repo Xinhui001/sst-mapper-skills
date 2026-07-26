@@ -96,7 +96,7 @@ fprintf('  时间插值完成 (%.1f s)\n', toc);
 
 %% ====== [可选] 6. 异常场计算 ======
 % 启用异常: 用异常代替绝对值, 使动图变化更明显
-USE_ANOMALY = true;  % false = 使用绝对温度
+USE_ANOMALY = false;  % false = 使用绝对温度（默认），true = 使用异常场
 
 if USE_ANOMALY
     sst_mean = mean(sst_6h, 3, 'omitnan');
