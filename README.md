@@ -121,3 +121,29 @@ Priority order: P0 (basic) > P1 (analysis) > P2 (advanced) > P3 (engineering)
 | 出图 | 多面板组合 / 等值线 / 矢量 | ❌ 需加 |
 | 工程 | 配置文件 / 日志 / 并行 | ❌ 需加 |
 
+
+---
+
+## Velocity Vector Fields / 流速矢量场
+
+### New Script
+
+| File / 文件 | Purpose / 作用 |
+|-------------|----------------|
+| scripts/vel_interp_anim.m | 流速矢量场动图模板：读取 uo/vo → 垂向插值到目标深度 → 时间插值到 6h → m_pcolor+m_quiver 动图 GIF |
+
+### Key Points / 关键要点
+
+- 数据：CMEMS GLOBAL_MULTIYEAR_PHY_ENS_001_031, uo_glor / o_glor
+- 垂向插值：permute + reshape + interp1 向量化
+- 时间插值：生成 6h datenum 轴后一次 interp1
+- 绘图：m_pcolor (流速大小) + m_quiver (矢量方向)
+- 顶刊要求：箭头抽稀、参考矢量、parula 配色
+
+### Capability Status Update / 能力状态更新
+
+| 层次 | 能力 | 当前状态 |
+|------|------|---------|
+| 基础 | 流速矢量场绘图 (m_quiver) | ✅ 已实现 |
+| 基础 | 垂直插值到多深度 (50/100/200m) | ✅ 已实现 |
+| 基础 | 时间插值到 6h | ✅ 已实现 |

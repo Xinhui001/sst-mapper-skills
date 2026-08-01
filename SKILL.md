@@ -245,10 +245,65 @@ end
 | USE_ANOMALY 开关未设置 | omitnan 参数 |
 | GIF 帧文件积累 | 每帧约 500KB |
 
+
+### ### 流速矢量场 (m_quiver) - 已实现
+
+完整流程：读取 uo/vo → 垂向插值到目标深度 → 时间插值到 6h → m_pcolor+m_quiver 动图 GIF。
+
+#### 数据来源
+
+- CMEMS 产品：GLOBAL_MULTIYEAR_PHY_ENS_001_031
+- 变量名：uo_glor (东向流速), o_glor (北向流速)
+- 维度顺序（netCDF4）：(time, depth, lat, lon)
+- 注意：MATLAB ncread 返回顺序为 (lon, lat, depth, time)，取表层第 t 时次用 uo_all(:,:,1,t)' 转置为 (lat,lon)
+
+#### 垂向插值 (向量化)
+
+`matlab
+zq = min(max(Z_TARGET, min(depth)), max(depth));
+Yu = reshape(permute(uo_all, [3,1,2,4]), nd, []);
+uo_z = reshape(interp1(depth, Yu, zq, 'linear'), [nlon, nlat, nt_orig]);
+`
+
+#### 时间插值 (向量化)
+
+`matlab
+time_6h = time_dn(1):(HOUR_STEP/24):time_dn(end);
+Yu = interp1(time_dn, reshape(permute(uo_z, [3,1,2]), nt_orig, []), time_6h, 'linear');
+uo_6h = permute(reshape(Yu, [nt_6h, nlon, nlat]), [2,3,1]);
+`
+
+#### 矢量绘图 + GIF
+
+`matlab
+% 每帧：颜色=流速大小, 箭头=方向
+uo = uo_6h(:,:,t)';  % (lon,lat) -> (lat,lon)
+spd = sqrt(uo.^2 + vo.^2);
+m_pcolor(lon, lat, spd); shading interp;
+colormap(parula(256)); caxis([0 smx]); hold on;
+m_quiver(lon_q, lat_q, u_q, v_q, 'color', [0.2 0.2 0.2], 'AutoScaleFactor', 0.6, 'linewidth', 0.3);
+% 参考矢量 (顶刊硬性要求)
+m_quiver(rx, ry, VREF, 0, 'color', [0.2 0.2 0.2], 'AutoScaleFactor', 0.6, 'linewidth', 0.5);
+text(rx+0.3, ry, sprintf('%.1f m/s', VREF), 'FontSize', 7, 'FontWeight', 'bold');
+% GIF: rgb2ind + imwrite append
+`
+
+#### 矢量场绘图要点
+
+| 要点 | 说明 |
+|--------|------|
+| 抽稀 | 矢量箭头每隔 4-5 个网格点画一个，防止过密 |
+| meshgrid | m_quiver 要求 lon/lat/u/v 四者同尺寸，用 meshgrid 生成 2D 网格 |
+| 参考矢量 | 必须有，图下角标注速度值 |
+| 色标 | 流速从 0 开始，上限取整到 0.1 的倍数 |
+| 配色 | parula (顶刊推荐)，箭头用深灰色 |
+
+完整模板脚本：scripts/vel_interp_anim.m
 ### New Scripts
 
-interp_depth_time_anim.m - interp_depth_time_anim.m - 完整工作流程 (支持 USE_ANOMALY 切换绝对温度/异常场)
-plot_sst_map.m - 可复用画图函数 (支持 parula/RdBu 配色)
+- interp_depth_time_anim.m - 完整工作流程 (支持 USE_ANOMALY 切换绝对温度/异常场)
+- plot_sst_map.m - 可复用画图函数 (支持 parula/RdBu 配色)
+- el_interp_anim.m - 流速矢量场动图模板 (垂直插值+时间插值+m_quiver+GIF)
 
 
 
@@ -286,7 +341,7 @@ plot_sst_map.m - 可复用画图函数 (支持 parula/RdBu 配色)
 |------|------|
 | EOF 分析 | svd/eig 分解时空场，提取主导模态 |
 | Hovmoller 图 | time-lon / time-lat 剖面展示信号传播 |
-| 矢量场图 | m_quiver 画海流叠加在海温/SSH 上 |
+| ~~矢量场图~~ | ~~m_quiver 画海流~~ ✅ 已实现 (见 scripts/vel_interp_anim.m) |
 | 锋面检测 | 基于梯度阈值的温度锋面提取 |
 | 色盲友好检查 | 确认所有配色通过 CVD 模拟 |
 
