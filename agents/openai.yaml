@@ -1,5 +1,5 @@
 ﻿interface:
-  display_name: "SST Mapper"
-  short_description: "Process SST data and create m_map plots"
-  default_prompt: "Create a SST map from CMEMS data"
+  display_name: "Ocean Mapper"
+  short_description: "Process ocean data and create m_map plots"
+  default_prompt: "Create an ocean map from CMEMS data"
 

@@ -1,7 +1,7 @@
-﻿# SST Mapper / 海温制图技能
+﻿# Ocean Mapper / 海洋数据制图技能
 
-A Codex skill for processing NetCDF sea surface temperature (SST) data and creating publication-quality maps using MATLAB + m_map toolbox.
-一个 Codex 技能，用于处理 NetCDF 海温数据，并用 MATLAB + m_map 绘制顶刊级别的海温图。
+A Codex skill for processing NetCDF ocean data (SST, currents, salinity, SSH, etc.) and creating publication-quality maps using MATLAB + m_map toolbox.
+一个 Codex 技能，用于处理 NetCDF 海洋数据（SST、流速、盐度、SSH等），并用 MATLAB + m_map 绘制顶刊级别的海洋图。
 
 ---
 

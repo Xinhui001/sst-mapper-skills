@@ -1,9 +1,9 @@
 ﻿---
-name: sst-mapper
-description: Generate publication-quality sea surface temperature (SST) maps from NetCDF data using MATLAB + m_map. Triggers on requests involving netcdf, sst, sea surface temperature, ocean data, m_map, interpolation, regional extraction, batch animation.
+name: ocean-mapper
+description: Generate publication-quality ocean data maps (SST, currents, salinity, SSH, etc.) from NetCDF data using MATLAB + m_map. Triggers on requests involving netcdf, sst, sea surface temperature, currents, velocity, salinity, ocean data, m_map, interpolation, regional extraction, batch animation, vector fields.
 ---
 
-# SST Mapper
+# Ocean Mapper
 
 Process NetCDF SST data and create publication-quality maps using MATLAB + m_map.
 
