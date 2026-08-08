@@ -71,6 +71,31 @@ For single-column figures (89mm wide at 300 dpi):
 - Line art: print(gcf, -depsc, -r600, file.eps)
 - GIF: rgb2ind + imwrite with DelayTime 0.4
 
+## NaN Gap Handling / 缺测区处理
+
+### Problem / 问题
+- m_pcolor + shading interp 会把 NaN 晕染到相邻有效格点，导致大片白色假缺测。
+- m_contourf 遇到 NaN 会自动断开等值线，白色只代表缺测，但边缘仍会留白。
+
+### Recommended / 推荐（平滑底图）
+先用 regionfill（Image Processing Toolbox）用周围有效格点预测并填充 NaN，再 shading interp：
+
+```matlab
+spd_fill = spd;
+nanmask = isnan(spd_fill);
+spd_fill(nanmask) = 0;
+spd_fill = regionfill(spd_fill, nanmask);
+m_pcolor(lon, lat, spd_fill);
+shading interp;
+```
+
+- regionfill 是拉普拉斯图像修复：以缺测区边界有效格点为约束，逐格平滑填充。
+- 只用于画图；粒子追踪/数值计算必须用原始场，不能跨陆地外推。
+
+### Alternatives / 替代方案
+- 检查缺测分布：shading flat 最诚实，白色只代表 NaN。
+- griddata 线性插值：稀疏散点缺测可用，但 Delaunay 三角形可能跨过海峡/陆地，且凸包外返回 NaN。
+
 ## Colormap Decision Guide
 | Data type | Recommended | Avoid |
 |-----------|-------------|-------|

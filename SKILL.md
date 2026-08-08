@@ -20,6 +20,7 @@ Process NetCDF SST data and create publication-quality maps using MATLAB + m_map
 | **先问再决定** | 拿不准的（工具链、数据格式、方案选择），先问用户 |
 | **GSHHS 数据需确认** | m_map 的 m_gshhs 需要 gshhs_*.b 文件，检查 m_map/data/ 是否齐全 |
 | **抽取画图逻辑** | 重复的画图代码抽成函数，改样式只改一个文件 |
+| **NaN 只补图不补轨迹** | m_pcolor + shading interp 前用 regionfill 补 NaN，防止白色晕染；粒子轨迹积分必须用原始场，不能跨陆地外推 |
 
 ## 推荐项目结构
 
@@ -308,6 +309,48 @@ text(rx+0.3, ry, sprintf('%.1f m/s', VREF), 'FontSize', 7, 'FontWeight', 'bold')
 
 
 ---
+### 粒子追踪 (Particle Tracking) - 已实现
+
+完整流程：读取表层 uo_glor/vo_glor → 每日→逐小时时间插值 → RK4 积分 → m_map 轨迹动图 GIF + 300 dpi 静态图。
+
+#### 数据来源
+
+- CMEMS GLOBAL_MULTIYEAR_PHY_ENS_001_031
+- 变量：uo_glor (东向流速), vo_glor (北向流速)
+- MATLAB ncread 维度顺序：(lon, lat, depth, time)，表层取 Z_IDX=1
+
+#### 核心流程
+
+```matlab
+% 1) 每日 -> 逐小时（向量化）
+Umat = reshape(permute(uo_surf, [3 1 2]), nt, []);
+uo_hr = permute(reshape(interp1(time_dn, Umat, time_hr_dn, 'linear'), ...
+                        [nthr nlon nlat]), [2 3 1]);
+
+% 2) 粒子当前位置查流速（时间 + 空间双线性）
+u = interp2(lon, lat, uo_hr(:,:,idx)', lonq, latq, 'linear');
+
+% 3) RK4 逐小时积分
+%    dlon = u*3600/(111320*cosd(lat)); dlat = v*3600/111320;
+
+% 4) 画图前补 NaN（仅画图，不参与积分）
+spd = fill_nan_field(spd);   % regionfill 拉普拉斯补值
+m_pcolor(lon, lat, spd); shading interp;
+```
+
+#### 关键要点
+
+| 要点 | 说明 |
+|------|------|
+| 下载范围 | 必须覆盖整条轨迹；22~32N 可跑满 15 天，否则会因越界提前停止 |
+| 起点/终点 | 台湾东北 122.5E, 25.5N → 126.47E, 28.65N (360 h) |
+| 位移换算 | 1° 纬距约 111.32 km；经距需乘 cosd(lat) |
+| 越界处理 | velocity_at 返回 NaN 即停止，不跨区域外推 |
+| NaN 补值 | regionfill 只用于画图底图，轨迹积分仍用原始场 |
+| 动图 | 逐小时一帧，rgb2ind + imwrite append |
+| 静态图 | 300 dpi，m_quiver 箭头抽稀 + 参考矢量 |
+
+完整模板脚本：scripts/particle_track_surface.m
 
 ## Roadmap / 开发计划
 

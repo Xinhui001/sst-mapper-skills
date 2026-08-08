@@ -147,3 +147,28 @@ Priority order: P0 (basic) > P1 (analysis) > P2 (advanced) > P3 (engineering)
 | 基础 | 流速矢量场绘图 (m_quiver) | ✅ 已实现 |
 | 基础 | 垂直插值到多深度 (50/100/200m) | ✅ 已实现 |
 | 基础 | 时间插值到 6h | ✅ 已实现 |
+
+## Particle Tracking / 粒子追踪
+
+### New Script
+
+| File / 文件 | Purpose / 作用 |
+|-------------|----------------|
+| scripts/particle_track_surface.m | 表层粒子追踪模板：每日→逐小时 → RK4 积分 → 轨迹动图 GIF + 300 dpi 静态图 |
+
+### Key Points / 关键要点
+
+- 数据：CMEMS GLOBAL_MULTIYEAR_PHY_ENS_001_031, uo_glor / vo_glor
+- 时间插值：interp1 每日 → 逐小时（向量化）
+- 空间插值：interp2 在粒子当前经纬度查流速
+- 积分：RK4，位移换算 m_per_deg_lat=111320, m_per_deg_lon=111320*cosd(lat)
+- 越界：velocity_at 返回 NaN 即停止，不跨区域外推
+- NaN 补值：regionfill 只用于画图底图（shading interp 前），轨迹积分仍用原始场
+- 顶刊：parula、固定 caxis、灰色陆地、箭头抽稀、参考矢量
+
+### Capability Status Update / 能力状态更新
+
+| 层次 | 能力 | 当前状态 |
+|------|------|---------|
+| 基础 | 粒子追踪（逐小时 + RK4 + 动图） | ✅ 已实现 |
+| 基础 | NaN 缺测补值（regionfill，仅画图） | ✅ 已实现 |
